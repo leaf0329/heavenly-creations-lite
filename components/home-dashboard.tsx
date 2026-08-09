@@ -85,7 +85,7 @@ export function HomeDashboard() {
           <SectionLabel>工作台资料</SectionLabel>
           <div className="mt-4 space-y-2">
             <Link href="/skills" className="resource-row"><span className="resource-row-icon resource-row-icon-rose"><Sparkles size={16} /></span><span><b>Skill</b><small>让 Agent 更懂你的方法</small></span><ArrowUpRight size={15} /></Link>
-            <Link href="/profiles" className="resource-row"><span className="resource-row-icon resource-row-icon-sand"><FileText size={16} /></span><span><b>Profile</b><small>保存门店与人设档案</small></span><ArrowUpRight size={15} /></Link>
+            <Link href="/profiles" className="resource-row"><span className="resource-row-icon resource-row-icon-sand"><FileText size={16} /></span><span><b>门店档案</b><small>保存门店定位与服务信息</small></span><ArrowUpRight size={15} /></Link>
             <Link href="/library" className="resource-row"><span className="resource-row-icon resource-row-icon-plum"><Library size={16} /></span><span><b>团队资料库</b><small>和团队共享有用的素材</small></span><ArrowUpRight size={15} /></Link>
           </div>
         </Panel>

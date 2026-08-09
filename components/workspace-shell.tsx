@@ -41,7 +41,7 @@ const primaryItems: NavItem[] = [
 const resourceItems: NavItem[] = [
   { href: '/history', label: '历史记录', icon: History },
   { href: '/skills', label: 'Skill', icon: Sparkles },
-  { href: '/profiles', label: 'Profile', icon: UserRound },
+  { href: '/profiles', label: '门店档案', icon: UserRound },
   { href: '/library', label: '团队资料库', icon: Library },
 ]
 

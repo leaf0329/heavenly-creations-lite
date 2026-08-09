@@ -60,9 +60,9 @@ export async function GET(req: NextRequest, context: Params) {
   const auth = await requireUser(req)
   if (!auth.ok) return auth.response
   const { id } = await context.params
-  if (!idSchema.safeParse(id).success) return NextResponse.json({ error: 'Profile 不存在' }, { status: 404 })
+  if (!idSchema.safeParse(id).success) return NextResponse.json({ error: '门店档案不存在' }, { status: 404 })
   const row = await findProfile(id, auth.user.id)
-  if (!row) return NextResponse.json({ error: 'Profile 不存在' }, { status: 404 })
+  if (!row) return NextResponse.json({ error: '门店档案不存在' }, { status: 404 })
   return NextResponse.json({ ok: true, profile: toResponse(row) })
 }
 
@@ -70,12 +70,12 @@ export async function PATCH(req: NextRequest, context: Params) {
   const auth = await requireUser(req)
   if (!auth.ok) return auth.response
   const { id } = await context.params
-  if (!idSchema.safeParse(id).success) return NextResponse.json({ error: 'Profile 不存在' }, { status: 404 })
+  if (!idSchema.safeParse(id).success) return NextResponse.json({ error: '门店档案不存在' }, { status: 404 })
   const existing = await findProfile(id, auth.user.id)
-  if (!existing) return NextResponse.json({ error: 'Profile 不存在' }, { status: 404 })
+  if (!existing) return NextResponse.json({ error: '门店档案不存在' }, { status: 404 })
   if ((existing.scope === 'system' && auth.user.accountType !== 'owner')
     || (existing.scope === 'private' && existing.owner_id !== auth.user.id)) {
-    return NextResponse.json({ error: '无权修改此 Profile' }, { status: 403 })
+    return NextResponse.json({ error: '无权修改此门店档案' }, { status: 403 })
   }
 
   let body: unknown
@@ -85,7 +85,7 @@ export async function PATCH(req: NextRequest, context: Params) {
     return NextResponse.json({ error: '请求体必须是 JSON' }, { status: 400 })
   }
   const parsed = patchSchema.safeParse(body)
-  if (!parsed.success) return NextResponse.json({ error: 'Profile 格式无效', details: parsed.error.flatten() }, { status: 400 })
+  if (!parsed.success) return NextResponse.json({ error: '门店档案格式无效', details: parsed.error.flatten() }, { status: 400 })
   const updates = parsed.data
   const fields: string[] = []
   const values: unknown[] = [id]
@@ -116,11 +116,11 @@ export async function PATCH(req: NextRequest, context: Params) {
       )
     })
     const row = result.rows[0]
-    if (!row) return NextResponse.json({ error: 'Profile 不存在' }, { status: 404 })
+    if (!row) return NextResponse.json({ error: '门店档案不存在' }, { status: 404 })
     return NextResponse.json({ ok: true, profile: toResponse(row) })
   } catch (error) {
     console.error('[profiles/update] failed', error instanceof Error ? error.message : 'unknown error')
-    return NextResponse.json({ error: '更新 Profile 失败' }, { status: 500 })
+    return NextResponse.json({ error: '更新门店档案失败' }, { status: 500 })
   }
 }
 
@@ -128,14 +128,14 @@ export async function DELETE(req: NextRequest, context: Params) {
   const auth = await requireUser(req)
   if (!auth.ok) return auth.response
   const { id } = await context.params
-  if (!idSchema.safeParse(id).success) return NextResponse.json({ error: 'Profile 不存在' }, { status: 404 })
+  if (!idSchema.safeParse(id).success) return NextResponse.json({ error: '门店档案不存在' }, { status: 404 })
   const existing = await findProfile(id, auth.user.id)
-  if (!existing) return NextResponse.json({ error: 'Profile 不存在' }, { status: 404 })
+  if (!existing) return NextResponse.json({ error: '门店档案不存在' }, { status: 404 })
   if ((existing.scope === 'system' && auth.user.accountType !== 'owner')
     || (existing.scope === 'private' && existing.owner_id !== auth.user.id)) {
-    return NextResponse.json({ error: '无权删除此 Profile' }, { status: 403 })
+    return NextResponse.json({ error: '无权删除此门店档案' }, { status: 403 })
   }
   const result = await query('DELETE FROM profiles WHERE id = $1', [id])
-  if (!(result.rowCount || 0)) return NextResponse.json({ error: 'Profile 不存在' }, { status: 404 })
+  if (!(result.rowCount || 0)) return NextResponse.json({ error: '门店档案不存在' }, { status: 404 })
   return NextResponse.json({ ok: true })
 }

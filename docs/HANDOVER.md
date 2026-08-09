@@ -4,7 +4,7 @@
 
 HCLite 位于 `C:\Users\Enys10021\Desktop\work1\HCLite`，是独立 Git 仓库。它不依赖 HeavenlyCreations 的数据库、部署目录或服务器。本阶段仅本地运行，不含线上部署配置。
 
-保留功能：单主账户与子用户、纯文案 Agent、六类文案、视频上传/链接转写、任务历史与重试、Skill、Profile、团队/私有信息库、四类共享 API 配置。
+保留功能：单主账户与子用户、纯文案 Agent、六类文案、视频上传/链接转写、任务历史与重试、Skill、门店档案、团队/私有信息库、四类共享 API 配置。
 
 明确删除：注册邀请、计费套餐、积分额度、图片/封面/视频生成、视觉分析、素材生成库、旧域名与旧部署逻辑。
 
@@ -20,7 +20,7 @@ HCLite 位于 `C:\Users\Enys10021\Desktop\work1\HCLite`，是独立 Git 仓库�
 迁移顺序：
 
 1. `001_initial.sql`：用户、会话和登录限流。
-2. `002_catalog_config.sql`：四类 API 配置、Skill、Profile、信息库。
+2. `002_catalog_config.sql`：四类 API 配置、Skill、门店档案（内部表名仍为 `profiles`）、信息库。
 3. `003_jobs.sql`：文案与转写任务队列。
 4. `004_agent.sql`：私有 Agent 对话、消息和已确认资产。
 
@@ -31,8 +31,8 @@ HCLite 位于 `C:\Users\Enys10021\Desktop\work1\HCLite`，是独立 Git 仓库�
 | 能力 | 主账户 | 子用户 |
 |---|---:|---:|
 | 六类文案、Agent、转写 | 是 | 是 |
-| 系统 Skill/Profile 管理 | 是 | 否 |
-| 私有 Skill/Profile | 仅自己 | 仅自己 |
+| 系统 Skill/门店档案管理 | 是 | 否 |
+| 私有 Skill/门店档案 | 仅自己 | 仅自己 |
 | 团队信息库 | 读取全部；管理自己或任意团队条目 | 读取全部；管理自己创建的团队条目 |
 | 私有信息库 | 仅自己 | 仅自己 |
 | 用户与 API 配置 | 是 | 否 |
@@ -42,7 +42,7 @@ HCLite 位于 `C:\Users\Enys10021\Desktop\work1\HCLite`，是独立 Git 仓库�
 
 ## 4. Agent 资产选择
 
-当前对话没有已确认选择且没有默认 Profile 时，服务端返回 `409 requiresAssetSelection`，前端展示 Skill/Profile/信息库选择。确认后同一对话复用，不重复弹窗，并展示：
+当前对话没有已确认选择且没有默认门店档案时，服务端返回 `409 requiresAssetSelection`，前端展示 Skill/门店档案/信息库选择。确认后同一对话复用，不重复弹窗，并展示：
 
 > 本对话不再弹出选择，直接使用当前已选择资产
 

@@ -244,7 +244,7 @@ export class AgentAssetSelectionError extends Error {
   readonly missing: AgentAssetSelection
 
   constructor(missing: AgentAssetSelection) {
-    super('选择的 Skill、Profile 或信息库条目不可用')
+    super('选择的 Skill、门店档案或信息库条目不可用')
     this.name = 'AgentAssetSelectionError'
     this.missing = missing
   }
@@ -580,7 +580,7 @@ export async function getAgentAssetContext(userId: string, selection: AgentAsset
         ORDER BY id`,
       [selection.profileIds, userId],
     )
-    if (result.rows.length) sections.push(`Profile：\n${result.rows.map((row) => `${row.name}\n${row.content}`).join('\n\n').slice(0, 60_000)}`)
+    if (result.rows.length) sections.push(`门店档案：\n${result.rows.map((row) => `${row.name}\n${row.content}`).join('\n\n').slice(0, 60_000)}`)
   }
   for (const id of selection.libraryItemIds.slice(0, 20)) {
     const item = await getLibraryItem(id, userId)

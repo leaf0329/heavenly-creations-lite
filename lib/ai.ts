@@ -94,7 +94,7 @@ export async function generateText(
 ): Promise<string> {
   const config = await getStoredServiceConfig('text')
   if (!config?.apiKey) throw new Error('未配置文字生成 API Key，请先在 API 配置中保存 text 服务')
-  const profile = options.profileContext?.trim() ? `\n【参考 Profile】\n${options.profileContext.trim()}\n` : ''
+  const profile = options.profileContext?.trim() ? `\n【参考门店档案】\n${options.profileContext.trim()}\n` : ''
   const library = options.libraryContext?.trim() || refsText(refs)
   const libraryBlock = library ? `\n【仅供参考的信息库资料】\n${library}\n` : ''
   const input = `${prompt.trim()}${profile}${libraryBlock}`.trim()

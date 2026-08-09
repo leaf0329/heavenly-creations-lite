@@ -100,7 +100,7 @@ export function AdminUsersClient() {
         {!loading && !members.length ? <EmptyState icon={UsersRound} title="还没有子用户" description="创建第一个成员账号后，团队成员就可以使用全部创作功能。" action={<SoftButton onClick={() => setShowCreate(true)}><Plus size={16} />创建子用户</SoftButton>} /> :
           <div className="divide-y divide-stone-100">{members.map((member) => <div key={member.id} className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-semibold text-ink">{member.displayName || member.username}</p><p className="mt-1 text-sm text-stone-500">@{member.username} · {member.status === 'active' ? '启用中' : '已停用'}</p></div><div className="flex flex-wrap gap-2"><button className="inline-action" onClick={() => void resetPassword(member)}>重置密码</button><button className="inline-action" onClick={() => void toggle(member)}>{member.status === 'active' ? '停用' : '启用'}</button><button className="inline-action" onClick={() => void remove(member)}>删除</button></div></div>)}</div>}
       </Panel>
-      <div className="info-callout"><ShieldCheck size={17} /><p>主账户无法查看子用户的对话、文案、转写、私有 Skill、Profile 或私有资料库内容。</p></div>
+      <div className="info-callout"><ShieldCheck size={17} /><p>主账户无法查看子用户的对话、文案、转写、私有 Skill、门店档案或私有资料库内容。</p></div>
     </div>
   )
 }

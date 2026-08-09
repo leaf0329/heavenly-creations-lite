@@ -132,11 +132,11 @@ export async function POST(req: NextRequest) {
   }
   const parsed = profileSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Profile 格式无效', details: parsed.error.flatten() }, { status: 400 })
+    return NextResponse.json({ error: '门店档案格式无效', details: parsed.error.flatten() }, { status: 400 })
   }
   const value = parsed.data
   if (value.scope === 'system' && auth.user.accountType !== 'owner') {
-    return NextResponse.json({ error: '只有主账户可以维护系统 Profile' }, { status: 403 })
+    return NextResponse.json({ error: '只有主账户可以维护系统门店档案' }, { status: 403 })
   }
   const id = randomUUID()
   try {
@@ -164,6 +164,6 @@ export async function POST(req: NextRequest) {
     const quota = catalogQuotaResponse(error)
     if (quota) return NextResponse.json({ error: quota.error, code: quota.code }, { status: quota.status })
     console.error('[profiles/create] failed', error instanceof Error ? error.message : 'unknown error')
-    return NextResponse.json({ error: '创建 Profile 失败' }, { status: 500 })
+    return NextResponse.json({ error: '创建门店档案失败' }, { status: 500 })
   }
 }

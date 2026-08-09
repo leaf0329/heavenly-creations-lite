@@ -120,7 +120,7 @@ export async function tryProcessJob(jobId: string): Promise<boolean> {
     const systemPrompt = [
       '你是 HCLite 的专业中文文案助手。',
       skillContext ? `\n【用户选择的 Skill】\n${skillContext}` : '',
-      profileContext ? `\n【用户选择的 Profile】\n${profileContext}` : '',
+      profileContext ? `\n【用户选择的门店档案】\n${profileContext}` : '',
     ].filter(Boolean).join('\n')
 
     await updateClaimedJobProgress(jobId, processingToken, 30, '正在生成文字')

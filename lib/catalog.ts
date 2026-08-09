@@ -21,7 +21,7 @@ export class CatalogQuotaError extends Error {
     public readonly scope: ResourceScope,
     public readonly limit: number,
   ) {
-    const label = kind === 'profile' ? 'Profile' : 'Skill'
+    const label = kind === 'profile' ? '门店档案' : 'Skill'
     const scopeLabel = scope === 'system' ? 'system' : 'private'
     super(`${scopeLabel} ${label} limit is ${limit}`)
     this.name = 'CatalogQuotaError'
