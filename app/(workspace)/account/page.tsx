@@ -1,0 +1,7 @@
+import Link from 'next/link'
+import { ChevronRight, KeyRound, LogOut, UserRound } from 'lucide-react'
+import { PageIntro, Panel, SoftButton } from '../../../components/workspace-ui'
+
+export default function AccountPage() {
+  return <div className="space-y-7 pb-8"><PageIntro eyebrow="账号 / ACCOUNT" title="账号设置" description="管理你的登录信息和当前工作区偏好。" /><div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]"><Panel><div className="account-profile"><span className="account-avatar"><UserRound size={24} /></span><div><p className="text-lg font-semibold text-ink">本地工作区成员</p><p className="mt-1 text-sm text-stone-500">登录后会显示你的用户名与显示名称</p></div></div><div className="form-divider" /><div className="space-y-4"><label className="form-field"><span>显示名称</span><input placeholder="未设置" /></label><label className="form-field"><span>用户名</span><input placeholder="由主账户创建" disabled /></label><div className="flex justify-end"><SoftButton>保存更改</SoftButton></div></div></Panel><aside className="space-y-5"><Panel><p className="text-sm font-semibold text-ink">安全</p><Link href="/account/password" className="account-link"><span><KeyRound size={16} /><b>修改密码</b></span><ChevronRight size={16} /></Link><button type="button" className="account-link account-link-danger"><span><LogOut size={16} /><b>退出登录</b></span><ChevronRight size={16} /></button></Panel><Panel className="soft-note"><p className="text-sm font-semibold text-ink">这是团队工作区</p><p className="mt-2 text-xs leading-5 text-stone-500">创作内容、对话和私有资料只对你可见；团队共享资料会按照创建时的权限提供给成员使用。</p></Panel></aside></div></div>
+}

@@ -1,0 +1,14 @@
+node_modules/
+.next/
+coverage/
+data/
+.local-tools/
+.local-postgres/
+.local-logs/
+.env
+.env.local
+.env.*.local
+*.tsbuildinfo
+*.log
+.DS_Store
+Thumbs.db

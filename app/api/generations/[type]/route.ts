@@ -1,0 +1,10 @@
+import { NextRequest } from 'next/server'
+import { handleGenerationRequest } from '../shared'
+
+export const dynamic = 'force-dynamic'
+
+export async function POST(req: NextRequest, { params }: { params: Promise<{ type: string }> }) {
+  const { type } = await params
+  return handleGenerationRequest(req, type)
+}
+
