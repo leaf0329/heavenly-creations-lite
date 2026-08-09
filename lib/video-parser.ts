@@ -8,12 +8,15 @@ import { randomUUID } from 'node:crypto'
 import { Agent, fetch as undiciFetch } from 'undici'
 import { getStoredServiceConfig } from './service-config'
 import { DEFAULT_STT_MAX_BYTES } from './media-command'
+import { decryptWeChatMediaFile } from './wechat-channels-decrypt'
 
 const MAX_REDIRECTS = 4
 const DEFAULT_TIMEOUT_MS = 120_000
-const SUPPORTED_PLATFORMS = new Set([
-  'douyin', 'bilibili', 'xiaohongshu', 'kuaishou', 'toutiao', 'weixin', 'weibo', 'youtube', 'tiktok',
-])
+export const SUPPORTED_VIDEO_PLATFORMS = [
+  'douyin', 'xiaohongshu', 'kuaishou', 'bilibili', 'toutiao', 'weixin', 'weibo',
+] as const
+type SupportedVideoPlatform = (typeof SUPPORTED_VIDEO_PLATFORMS)[number]
+const SUPPORTED_PLATFORMS = new Set<string>(SUPPORTED_VIDEO_PLATFORMS)
 
 export interface ParsedVideoSource {
   sourceUrl: string
@@ -21,6 +24,7 @@ export interface ParsedVideoSource {
   platform: string
   title: string | null
   metadata: Record<string, unknown>
+  decodeKey?: string
 }
 
 export interface DownloadedVideo {
@@ -111,6 +115,8 @@ export async function safeVideoFetch(
     maxResponseBytes?: number
     allowedDomains?: readonly string[]
     headers?: HeadersInit
+    method?: 'GET' | 'POST'
+    body?: string
   } = {},
 ): Promise<Response> {
   let current: URL
@@ -132,6 +138,8 @@ export async function safeVideoFetch(
       response = await undiciFetch(current, {
         dispatcher: agent,
         redirect: 'manual',
+        method: options.method || 'GET',
+        body: options.body,
         headers: options.headers ? Object.fromEntries(new Headers(options.headers).entries()) : undefined,
         signal: AbortSignal.timeout(options.timeoutMs ?? DEFAULT_TIMEOUT_MS),
       }) as unknown as Response
@@ -190,10 +198,12 @@ export async function safeVideoFetch(
         await closeAgent(agent)
       },
     })
+    const responseHeaders = new Headers(response.headers)
+    responseHeaders.set('x-hclite-final-url', current.toString())
     return new Response(body, {
       status: response.status,
       statusText: response.statusText,
-      headers: response.headers,
+      headers: responseHeaders,
     })
   }
   throw new Error('远程视频重定向次数过多')
@@ -210,8 +220,6 @@ export function detectPlatform(sourceUrl: string): string {
   if (host === 'ixigua.com' || host.endsWith('.ixigua.com') || host === 'toutiao.com' || host.endsWith('.toutiao.com')) return 'toutiao'
   if (host === 'weixin.qq.com' || host.endsWith('.weixin.qq.com') || host.endsWith('.wechat.com') || host.includes('channels')) return 'weixin'
   if (host === 'weibo.com' || host.endsWith('.weibo.com') || host.endsWith('.weibo.cn')) return 'weibo'
-  if (host === 'youtube.com' || host.endsWith('.youtube.com') || host === 'youtu.be') return 'youtube'
-  if (host === 'tiktok.com' || host.endsWith('.tiktok.com')) return 'tiktok'
   return 'unknown'
 }
 
@@ -223,31 +231,10 @@ const PLATFORM_LABELS: Record<string, string> = {
   toutiao: '头条',
   weixin: '微信视频号',
   weibo: '微博',
-  youtube: 'YouTube',
-  tiktok: 'TikTok',
 }
 
 export function getPlatformLabel(platform: string): string {
   return PLATFORM_LABELS[platform] || platform
-}
-
-function endpointPath(platform: string, options: Record<string, unknown>): { path: string; param: string } {
-  const configured = options.resolve_path || options.path
-  if (typeof configured === 'string' && configured.trim()) {
-    return { path: configured.trim(), param: typeof options.url_param === 'string' ? options.url_param : 'url' }
-  }
-  const defaults: Record<string, { path: string; param: string }> = {
-    douyin: { path: '/api/v1/douyin/web/fetch_one_video_by_share_url', param: 'share_url' },
-    bilibili: { path: '/api/v1/bilibili/web/fetch_one_video_info', param: 'url' },
-    xiaohongshu: { path: '/api/v1/xiaohongshu/web/fetch_note_by_url', param: 'note_url' },
-    kuaishou: { path: '/api/v1/kuaishou/web/fetch_one_video_by_url', param: 'url' },
-    toutiao: { path: '/api/v1/toutiao/web/fetch_one_video', param: 'url' },
-    weixin: { path: '/api/v1/wechat/channels/v2/fetch_one_video_by_url', param: 'url' },
-    weibo: { path: '/api/v1/weibo/web/fetch_one_video', param: 'url' },
-    youtube: { path: '/api/v1/youtube/web/fetch_one_video_info', param: 'url' },
-    tiktok: { path: '/api/v1/tiktok/web/fetch_one_video_info', param: 'url' },
-  }
-  return defaults[platform] || { path: '/resolve', param: 'url' }
 }
 
 function firstUrl(value: unknown): string | null {
@@ -263,35 +250,6 @@ function firstUrl(value: unknown): string | null {
     const url = new URL(value)
     return ['http:', 'https:'].includes(url.protocol) ? url.toString() : null
   } catch { return null }
-}
-
-function findMediaUrl(value: unknown, depth = 0): string | null {
-  if (depth > 6 || value === null || value === undefined) return null
-  const direct = firstUrl(value)
-  if (direct) return direct
-  if (Array.isArray(value)) {
-    for (const entry of value) {
-      const found = findMediaUrl(entry, depth + 1)
-      if (found) return found
-    }
-    return null
-  }
-  if (typeof value !== 'object') return null
-  const record = value as Record<string, unknown>
-  const preferredKeys = [
-    'download_url', 'downloadUrl', 'original_video_url', 'video_url', 'videoUrl',
-    'play_url', 'playUrl', 'media_url', 'mediaUrl', 'master_url', 'masterUrl', 'url',
-  ]
-  for (const key of preferredKeys) {
-    const found = findMediaUrl(record[key], depth + 1)
-    if (found) return found
-  }
-  for (const [key, entry] of Object.entries(record)) {
-    if (/cover|avatar|image|thumbnail|music|audio/i.test(key)) continue
-    const found = findMediaUrl(entry, depth + 1)
-    if (found) return found
-  }
-  return null
 }
 
 function findTitle(value: unknown, depth = 0): string | null {
@@ -314,6 +272,307 @@ function findTitle(value: unknown, depth = 0): string | null {
   return null
 }
 
+function pathValue(value: unknown, pathParts: readonly (string | number)[]): unknown {
+  let current = value
+  for (const part of pathParts) {
+    if (typeof part === 'number') {
+      if (!Array.isArray(current)) return undefined
+      current = current[part]
+      continue
+    }
+    if (!current || typeof current !== 'object' || Array.isArray(current)) return undefined
+    current = (current as Record<string, unknown>)[part]
+  }
+  return current
+}
+
+interface TikHubEndpoint {
+  path: string
+  param: string
+  extract: (payload: unknown) => string | null
+}
+
+interface TikHubRequest {
+  url: URL
+  method?: 'GET' | 'POST'
+  body?: string
+  extract: (payload: unknown) => string | null
+}
+
+function douyinDetail(payload: unknown): unknown {
+  return pathValue(payload, ['data', 'aweme_detail'])
+    || pathValue(payload, ['data', 'data', 'aweme_detail'])
+    || pathValue(payload, ['aweme_detail'])
+    || null
+}
+
+function addressUrl(address: unknown): string | null {
+  if (address && typeof address === 'object' && !Array.isArray(address)) {
+    const record = address as Record<string, unknown>
+    return firstUrl(record.url_list) || firstUrl(record.url) || firstUrl(address)
+  }
+  return firstUrl(address)
+}
+
+/** TikHub Douyin Web/App V3 response adapter retained from the full project. */
+export function extractDouyinMediaUrl(payload: unknown): string | null {
+  const direct = firstUrl(pathValue(payload, ['data', 'original_video_url']))
+    || firstUrl(pathValue(payload, ['data', 'data', 'original_video_url']))
+  if (direct) return direct
+
+  const video = pathValue(douyinDetail(payload), ['video'])
+    || pathValue(payload, ['data', 'video'])
+    || pathValue(payload, ['data', 'data', 'video'])
+  if (!video || typeof video !== 'object' || Array.isArray(video)) return null
+  const videoRecord = video as Record<string, unknown>
+  const h264 = addressUrl(videoRecord.play_addr_h264) || addressUrl(videoRecord.play_addr)
+  if (h264) return h264
+
+  const bitRates = Array.isArray(videoRecord.bit_rate) ? [...videoRecord.bit_rate] : []
+  bitRates.sort((left, right) =>
+    Number(pathValue(right, ['play_addr', 'data_size']) || pathValue(right, ['bit_rate']) || 0)
+      - Number(pathValue(left, ['play_addr', 'data_size']) || pathValue(left, ['bit_rate']) || 0))
+  for (const rate of bitRates) {
+    const candidate = addressUrl(pathValue(rate, ['play_addr']))
+    if (candidate) return candidate
+  }
+  return addressUrl(videoRecord.play_addr_265) || addressUrl(videoRecord.play_addr_bytevc1)
+}
+
+function extractBilibiliMediaUrl(payload: unknown): string | null {
+  // DASH audio is sufficient for speech-to-text and avoids downloading a separate video track.
+  return firstUrl(pathValue(payload, ['data', 'data', 'dash', 'audio', 0, 'baseUrl']))
+    || firstUrl(pathValue(payload, ['data', 'data', 'dash', 'audio', 0, 'base_url']))
+    || firstUrl(pathValue(payload, ['data', 'dash', 'audio', 0, 'baseUrl']))
+    || firstUrl(pathValue(payload, ['data', 'dash', 'audio', 0, 'base_url']))
+    || firstUrl(pathValue(payload, ['data', 'data', 'durl', 0, 'url']))
+    || firstUrl(pathValue(payload, ['data', 'durl', 0, 'url']))
+}
+
+function extractWeChatMedia(payload: unknown): string | null {
+  const full = firstUrl(pathValue(payload, ['data', 'media', 'full_url']))
+    || firstUrl(pathValue(payload, ['data', 'data', 'media', 'full_url']))
+  if (full) return full
+  const base = pathValue(payload, ['data', 'media', 'url'])
+    || pathValue(payload, ['data', 'data', 'media', 'url'])
+  const token = pathValue(payload, ['data', 'media', 'url_token'])
+    || pathValue(payload, ['data', 'data', 'media', 'url_token'])
+  return typeof base === 'string' && typeof token === 'string' ? firstUrl(`${base}${token}`) : null
+}
+
+function extractWeChatDecodeKey(payload: unknown): string | null {
+  const value = pathValue(payload, ['data', 'media', 'decode_key'])
+    || pathValue(payload, ['data', 'data', 'media', 'decode_key'])
+  return typeof value === 'string' || typeof value === 'number' ? String(value) : null
+}
+
+const TIKHUB_ENDPOINTS: Record<SupportedVideoPlatform, TikHubEndpoint> = {
+  douyin: {
+    path: '/api/v1/douyin/web/fetch_one_video_by_share_url',
+    param: 'share_url',
+    extract: extractDouyinMediaUrl,
+  },
+  bilibili: {
+    path: '/api/v1/bilibili/web/fetch_video_playurl',
+    param: 'bv_id',
+    extract: extractBilibiliMediaUrl,
+  },
+  xiaohongshu: {
+    path: '/api/v1/xiaohongshu/app_v2/get_video_note_detail',
+    param: 'share_text',
+    extract: (payload) => firstUrl(pathValue(payload, ['data', 'data', 'video', 'media', 'stream', 'h264', 0, 'master_url']))
+      || firstUrl(pathValue(payload, ['data', 'items', 0, 'note_card', 'video', 'media', 'stream', 'h264', 0, 'master_url']))
+      || firstUrl(pathValue(payload, ['data', 'items', 0, 'note_card', 'video', 'media', 'video_extra_info_encoded', 'media_video_info', 'video_url'])),
+  },
+  kuaishou: {
+    path: '/api/v1/kuaishou/web/fetch_one_video_by_url',
+    param: 'url',
+    extract: (payload) => firstUrl(pathValue(payload, ['data', 'data', 'video', 'urls', 0]))
+      || firstUrl(pathValue(payload, ['data', 'video', 'urls', 0])),
+  },
+  toutiao: {
+    path: '/api/v1/toutiao/app/get_video_info',
+    param: 'group_id',
+    extract: (payload) => firstUrl(pathValue(payload, ['data', 'data', 'video_info', 'video_url']))
+      || firstUrl(pathValue(payload, ['data', 'data', 'video_list', 'video_1', 'main_url']))
+      || firstUrl(pathValue(payload, ['data', 'video_info', 'video_url'])),
+  },
+  weixin: {
+    path: '/api/v1/wechat_channels/v2/fetch_video_detail',
+    param: 'share_url',
+    extract: extractWeChatMedia,
+  },
+  weibo: {
+    path: '/api/v1/weibo/app/fetch_video_detail',
+    param: 'mid',
+    extract: (payload) => firstUrl(pathValue(payload, ['data', 'data', 'page_info', 'media_info', 'stream_url_hd']))
+      || firstUrl(pathValue(payload, ['data', 'page_info', 'media_info', 'stream_url_hd']))
+      || firstUrl(pathValue(payload, ['data', 'data', 'video_url'])),
+  },
+}
+
+const DOUYIN_APP_FALLBACK: TikHubEndpoint = {
+  path: '/api/v1/douyin/app/v3/fetch_one_video_by_share_url',
+  param: 'share_url',
+  extract: extractDouyinMediaUrl,
+}
+
+/** Explicit per-platform extraction prevents cover/avatar URLs from becoming media. */
+export function extractTikHubMediaUrl(platform: string, payload: unknown): string | null {
+  if (!SUPPORTED_PLATFORMS.has(platform)) return null
+  return TIKHUB_ENDPOINTS[platform as SupportedVideoPlatform].extract(payload)
+}
+
+export function extractBvid(sourceUrl: string): string | null {
+  return sourceUrl.match(/\b(BV[0-9A-Za-z]{10})\b/i)?.[1] || null
+}
+
+export function extractXiguaItemId(sourceUrl: string): string | null {
+  const url = new URL(sourceUrl)
+  return url.searchParams.get('item_id') || url.pathname.match(/\/(\d{10,})(?:\/|$)/)?.[1] || null
+}
+
+export function extractToutiaoGroupId(sourceUrl: string): string | null {
+  const url = new URL(sourceUrl)
+  return url.searchParams.get('group_id') || url.searchParams.get('item_id')
+    || url.pathname.match(/\/(?:video|group)\/(\d+)(?:\/|$)/)?.[1] || null
+}
+
+export function extractWeiboMid(sourceUrl: string): string | null {
+  const url = new URL(sourceUrl)
+  return url.searchParams.get('mid') || url.pathname.match(/:(\d+)(?:\/|$)/)?.[1]
+    || url.pathname.match(/\/(\d{10,})(?:\/|$)/)?.[1] || null
+}
+
+async function finalShareUrl(sourceUrl: string, fetcher: typeof safeVideoFetch): Promise<string> {
+  const response = await fetcher(sourceUrl, { timeoutMs: 15_000, maxRedirects: MAX_REDIRECTS, maxResponseBytes: 512 * 1024 })
+  const finalUrl = response.headers.get('x-hclite-final-url') || sourceUrl
+  await response.body?.cancel().catch(() => undefined)
+  return finalUrl
+}
+
+function apiRequest(endpoint: URL, pathName: string, params: Record<string, string>, extract: TikHubEndpoint['extract']): TikHubRequest {
+  const url = new URL(pathName, endpoint)
+  for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value)
+  return { url, extract }
+}
+
+async function buildTikHubRequests(
+  input: { sourceUrl: string; platform: SupportedVideoPlatform; endpoint: URL },
+  fetcher: typeof safeVideoFetch,
+): Promise<TikHubRequest[]> {
+  const primary = TIKHUB_ENDPOINTS[input.platform]
+  if (input.platform === 'douyin') {
+    return [primary, DOUYIN_APP_FALLBACK].map((item) => apiRequest(input.endpoint, item.path, { [item.param]: input.sourceUrl }, item.extract))
+  }
+  if (input.platform === 'xiaohongshu' || input.platform === 'kuaishou') {
+    return [apiRequest(input.endpoint, primary.path, { [primary.param]: input.sourceUrl }, primary.extract)]
+  }
+  if (input.platform === 'weixin') {
+    const url = new URL(primary.path, input.endpoint)
+    return [{ url, method: 'POST', body: JSON.stringify({ share_url: input.sourceUrl, raw: false }), extract: primary.extract }]
+  }
+  let sourceUrl = input.sourceUrl
+  if ((input.platform === 'bilibili' && !extractBvid(sourceUrl))
+    || (input.platform === 'toutiao' && !extractXiguaItemId(sourceUrl) && !extractToutiaoGroupId(sourceUrl))
+    || (input.platform === 'weibo' && !extractWeiboMid(sourceUrl))) {
+    sourceUrl = await finalShareUrl(sourceUrl, fetcher)
+  }
+  if (input.platform === 'bilibili') {
+    const bvid = extractBvid(sourceUrl)
+    if (!bvid) throw new Error('无法从 B站分享链接识别 BV 号')
+    // TikHub's parts endpoint supplies the CID required by its play-url endpoint.
+    return [apiRequest(input.endpoint, '/api/v1/bilibili/web/fetch_video_parts', { bv_id: bvid }, () => null),
+      apiRequest(input.endpoint, primary.path, { bv_id: bvid, cid: '__FROM_PREVIOUS__' }, primary.extract)]
+  }
+  if (input.platform === 'toutiao') {
+    const host = normalizedHost(new URL(sourceUrl).hostname)
+    if (host === 'ixigua.com' || host.endsWith('.ixigua.com')) {
+      const itemId = extractXiguaItemId(sourceUrl)
+      if (!itemId) throw new Error('无法从西瓜视频分享链接识别作品 ID')
+      return [apiRequest(input.endpoint, '/api/v1/xigua/app/v2/fetch_one_video_play_url', { item_id: itemId }, (payload) =>
+        firstUrl(pathValue(payload, ['data', 'data', 'video_url'])) || firstUrl(pathValue(payload, ['data', 'video_url']))
+        || firstUrl(pathValue(payload, ['data', 'data'])))]
+    }
+    const groupId = extractToutiaoGroupId(sourceUrl)
+    if (!groupId) throw new Error('无法从头条分享链接识别作品 ID')
+    return [apiRequest(input.endpoint, primary.path, { group_id: groupId }, primary.extract)]
+  }
+  const mid = extractWeiboMid(sourceUrl)
+  if (!mid) throw new Error('无法从微博分享链接识别视频 ID')
+  return [apiRequest(input.endpoint, primary.path, { mid }, primary.extract)]
+}
+
+function tikhubStatusError(status: number): Error {
+  if (status === 401) return new Error('TikHub API Key 无效或已过期，请检查设置')
+  if (status === 402) return new Error('TikHub 账户余额不足，请充值后重试')
+  if (status === 429) return new Error('TikHub 请求过于频繁，请稍后重试')
+  return new Error(`视频链接解析失败 (HTTP ${status})`)
+}
+
+function tikhubUnavailableMessage(payload: unknown): string {
+  const reason = String(pathValue(payload, ['data', 'filter_list', 0, 'reason']) ?? '')
+  if (reason === '5') return '该内容为私密作品'
+  if (reason === '8') return '该内容不可用、已删除或存在地区版权限制'
+  if (reason === '10') return '该内容仅对部分用户可见'
+  return 'TikHub 未返回可用视频地址，该内容可能是图文作品或暂不可访问'
+}
+
+/** Resolve through TikHub with an injectable safe fetcher for contract tests. */
+export async function resolveTikHubMedia(
+  input: {
+    sourceUrl: string
+    platform: SupportedVideoPlatform
+    endpoint: URL
+    apiKey: string
+    options: Record<string, unknown>
+  },
+  fetcher: typeof safeVideoFetch = safeVideoFetch,
+): Promise<{ mediaUrl: string; payload: unknown; decodeKey?: string }> {
+  const attempts = await buildTikHubRequests(input, fetcher)
+  let payload: unknown = null
+  let mediaUrl: string | null = null
+  for (let index = 0; index < attempts.length; index++) {
+    const current = attempts[index]!
+    if (current.url.searchParams.get('cid') === '__FROM_PREVIOUS__') {
+      const cid = pathValue(payload, ['data', 'data', 'cid']) || pathValue(payload, ['data', 'cid'])
+        || pathValue(payload, ['data', 'data', 0, 'cid']) || pathValue(payload, ['data', 0, 'cid'])
+        || pathValue(payload, ['data', 'data', 'pages', 0, 'cid']) || pathValue(payload, ['data', 'pages', 0, 'cid'])
+      if (typeof cid !== 'string' && typeof cid !== 'number') throw new Error('TikHub 未返回 B站视频 CID')
+      current.url.searchParams.set('cid', String(cid))
+    }
+    const response = await fetcher(current.url.toString(), {
+      timeoutMs: Number(input.options.timeout_ms) > 0 ? Number(input.options.timeout_ms) : 30_000,
+      maxRedirects: Number(input.options.max_redirects) >= 0 ? Number(input.options.max_redirects) : 2,
+      maxResponseBytes: 8 * 1024 * 1024,
+      allowedDomains: allowedDomainsFromOptions(input.options, 'parser_allowlist'),
+      headers: {
+        Authorization: `Bearer ${input.apiKey}`,
+        Accept: 'application/json',
+        ...(current.method === 'POST' ? { 'Content-Type': 'application/json' } : {}),
+        'User-Agent': 'HCLite/1.0 video-parser',
+      },
+      method: current.method,
+      body: current.body,
+    })
+    if (!response.ok) {
+      await response.body?.cancel().catch(() => undefined)
+      if (index + 1 < attempts.length && response.status >= 500) continue
+      throw tikhubStatusError(response.status)
+    }
+    payload = await response.json().catch(() => null)
+    const providerStatus = Number(pathValue(payload, ['code']) || 0)
+    if ([401, 402, 429].includes(providerStatus)) throw tikhubStatusError(providerStatus)
+    mediaUrl = payload ? current.extract(payload) : null
+    if (mediaUrl) break
+    if (input.platform === 'bilibili' && index === 0) continue
+  }
+  if (!mediaUrl || mediaUrl === input.sourceUrl) throw new Error(tikhubUnavailableMessage(payload))
+  const decodeKey = input.platform === 'weixin' ? extractWeChatDecodeKey(payload) : null
+  if (input.platform === 'weixin' && !decodeKey) throw new Error('TikHub 未返回视频号解密密钥')
+  return { mediaUrl, payload, ...(decodeKey ? { decodeKey } : {}) }
+}
+
 function ensureSafeSourceUrl(sourceUrl: string): URL {
   let parsed: URL
   try { parsed = new URL(sourceUrl) } catch { throw new Error('请输入有效的视频分享链接') }
@@ -332,35 +591,22 @@ export async function parseVideoUrl(sourceUrl: string): Promise<ParsedVideoSourc
   const platform = detectPlatform(canonicalSource)
   const config = await getStoredServiceConfig('video_parser')
   if (!config?.enabled || !config.endpoint.trim()) throw new Error('视频链接解析服务尚未配置')
+  if (config.provider.trim().toLowerCase() !== 'tikhub') throw new Error('视频链接解析服务仅支持 TikHub')
   if (!config.apiKey?.trim()) throw new Error('视频链接解析服务 API Key 尚未配置')
   let endpoint: URL
   try { endpoint = new URL(config.endpoint) } catch { throw new Error('视频链接解析服务地址无效') }
   if (!['http:', 'https:'].includes(endpoint.protocol) || endpoint.username || endpoint.password) {
     throw new Error('视频链接解析服务地址无效')
   }
-  const { path: resolvePath, param } = endpointPath(platform, config.options)
-  const apiUrl = new URL(resolvePath, endpoint)
-  apiUrl.searchParams.set(param, canonicalSource)
-  const response = await safeVideoFetch(apiUrl.toString(), {
-    timeoutMs: Number(config.options.timeout_ms) > 0 ? Number(config.options.timeout_ms) : 30_000,
-    maxRedirects: Number(config.options.max_redirects) >= 0 ? Number(config.options.max_redirects) : 2,
-    maxResponseBytes: 8 * 1024 * 1024,
-    allowedDomains: allowedDomainsFromOptions(config.options, 'parser_allowlist'),
-    headers: {
-      Authorization: `Bearer ${config.apiKey}`,
-      Accept: 'application/json',
-      'User-Agent': 'HCLite/1.0 video-parser',
-    },
+  const resolved = await resolveTikHubMedia({
+    sourceUrl: canonicalSource,
+    platform: platform as SupportedVideoPlatform,
+    endpoint,
+    apiKey: config.apiKey,
+    options: config.options,
   })
-  if (!response.ok) {
-    await response.body?.cancel().catch(() => undefined)
-    throw new Error(`视频链接解析失败 (HTTP ${response.status})`)
-  }
-  const payload: unknown = await response.json().catch(() => null)
-  const mediaUrl = findMediaUrl(payload)
-  if (!mediaUrl || mediaUrl === canonicalSource) throw new Error('视频链接解析服务未返回可用媒体地址')
   // Validate the returned address now, before the downloader follows it.
-  const media = new URL(mediaUrl)
+  const media = new URL(resolved.mediaUrl)
   if (!['http:', 'https:'].includes(media.protocol) || media.username || media.password) {
     throw new Error('视频链接解析服务返回了无效媒体地址')
   }
@@ -368,12 +614,13 @@ export async function parseVideoUrl(sourceUrl: string): Promise<ParsedVideoSourc
     sourceUrl: canonicalSource,
     mediaUrl: media.toString(),
     platform,
-    title: findTitle(payload),
+    title: findTitle(resolved.payload),
     metadata: {
       platform,
-      parser: config.provider || 'custom',
+      parser: 'tikhub',
       mediaAllowlist: allowedDomainsFromOptions(config.options, 'media_allowlist'),
     },
+    ...(resolved.decodeKey ? { decodeKey: resolved.decodeKey } : {}),
   }
 }
 
@@ -423,6 +670,7 @@ export async function downloadResolvedMedia(
       output.once('error', reject)
     })
     if (!received) throw new Error('远程视频为空')
+    if (source.decodeKey) await decryptWeChatMediaFile(filePath, source.decodeKey)
     return { filePath, size: received, mimeType: contentType, mediaUrl: source.mediaUrl }
   } catch (error) {
     await reader.cancel().catch(() => undefined)

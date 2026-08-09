@@ -22,11 +22,13 @@ export async function POST(req: NextRequest, context: Params) {
     // calls validate provider credentials in their own task paths.
     const stored = await getStoredServiceConfig(params.service)
     const endpointValid = !config.endpoint || /^https?:\/\//i.test(config.endpoint)
-    const configured = config.enabled && Boolean(config.model || config.provider) && (stored?.apiKey ? true : !config.hasKey)
+    const providerValid = params.service !== 'video_parser' || config.provider.trim().toLowerCase() === 'tikhub'
+    const configured = config.enabled && Boolean(config.model || config.provider) && Boolean(stored?.apiKey) && providerValid
     return NextResponse.json({
       ok: configured && endpointValid,
       configured,
       endpointValid,
+      providerValid,
       checkType: 'local-validation',
       providerRequestSent: false,
       service: params.service,

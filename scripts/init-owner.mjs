@@ -92,19 +92,35 @@ await client.connect()
 try {
   await client.query('BEGIN')
   const existing = await client.query("SELECT id FROM users WHERE account_type = 'owner' LIMIT 1")
+  let ownerId
   if (existing.rowCount) {
-    await client.query('ROLLBACK')
-    console.log('[owner] An owner account already exists; no changes made')
+    ownerId = existing.rows[0].id
+    console.log('[owner] An owner account already exists; credentials were not changed')
   } else {
+    ownerId = crypto.randomUUID()
     await client.query(
       `INSERT INTO users
         (id, username, display_name, password_hash, account_type, status)
        VALUES ($1, $2, $3, $4, 'owner', 'active')`,
-      [crypto.randomUUID(), username, displayName, passwordHash],
+      [ownerId, username, displayName, passwordHash],
     )
-    await client.query('COMMIT')
     console.log(`[owner] Created owner account ${username}`)
   }
+  await client.query(
+    `INSERT INTO service_configs
+      (service, provider, endpoint, model, encrypted_api_key, options, enabled, updated_by)
+     VALUES ('video_parser', 'tikhub', 'https://api.tikhub.dev', '', NULL, '{}'::jsonb, true, $1)
+     ON CONFLICT (service) DO UPDATE SET
+       provider = CASE WHEN service_configs.provider = '' THEN EXCLUDED.provider ELSE service_configs.provider END,
+       endpoint = CASE WHEN service_configs.endpoint = '' THEN EXCLUDED.endpoint ELSE service_configs.endpoint END,
+       updated_at = CASE
+         WHEN service_configs.provider = '' OR service_configs.endpoint = '' THEN now()
+         ELSE service_configs.updated_at
+       END`,
+    [ownerId],
+  )
+  await client.query('COMMIT')
+  console.log('[owner] TikHub video parser defaults are ready; API Key remains owner-configured')
 } catch (error) {
   try { await client.query('ROLLBACK') } catch {}
   if (error?.code === '23505') {

@@ -47,6 +47,10 @@ export async function PUT(req: NextRequest, context: Params) {
   if (!parsed.success) {
     return NextResponse.json({ error: '配置格式无效', details: parsed.error.flatten() }, { status: 400 })
   }
+  if (service === 'video_parser' && parsed.data.provider !== undefined
+    && parsed.data.provider.trim().toLowerCase() !== 'tikhub') {
+    return NextResponse.json({ error: '视频链接解析服务仅支持 TikHub' }, { status: 400 })
+  }
 
   try {
     const config = await upsertServiceConfig({ service, ...parsed.data }, auth.user.id)
