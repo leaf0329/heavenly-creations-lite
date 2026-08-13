@@ -27,7 +27,9 @@ async function client(internal: boolean): Promise<OSS> {
   const credentials = await getAlibabaAccessCredentials()
   const endpoint = required(internal ? 'OSS_INTERNAL_ENDPOINT' : 'OSS_PUBLIC_ENDPOINT')
   return new OSS({
-    ...credentials,
+    accessKeyId: credentials.accessKeyId,
+    accessKeySecret: credentials.accessKeySecret,
+    stsToken: credentials.securityToken,
     bucket: bucket(),
     region: region(),
     endpoint,
