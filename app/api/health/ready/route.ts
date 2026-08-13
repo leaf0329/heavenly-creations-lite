@@ -1,3 +1,4 @@
+import fs from 'node:fs'
 import { NextResponse } from 'next/server'
 import { pingDatabase, query } from '@/lib/db'
 
@@ -12,15 +13,34 @@ async function checkSchema(): Promise<boolean> {
        FROM information_schema.tables
       WHERE table_schema = 'public'
         AND table_name = ANY($1::text[])`,
-    [['schema_migrations', 'users', 'auth_sessions']],
+    [[
+      'schema_migrations', 'users', 'auth_sessions', 'auth_rate_limits',
+      'service_configs', 'skills', 'profiles', 'library_items', 'jobs',
+      'agent_conversations', 'agent_messages', 'agent_conversation_assets',
+    ]],
   )
   const tables = new Set(result.rows.map((row) => row.table_name))
-  return tables.size === 3
+  if (tables.size !== 12) return false
+  const migrations = await query<{ count: number }>('SELECT COUNT(*)::int AS count FROM schema_migrations WHERE checksum IS NOT NULL')
+  return Number(migrations.rows[0]?.count || 0) >= 4
+}
+
+function checkProductionConfig(): boolean {
+  if (process.env.NODE_ENV !== 'production') return true
+  const required = [
+    'CONFIG_ENCRYPTION_KEY', 'APP_ORIGIN', 'OSS_BUCKET', 'OSS_REGION',
+    'OSS_INTERNAL_ENDPOINT', 'OSS_PUBLIC_ENDPOINT', 'ALIBABA_CLOUD_CREDENTIALS_TYPE',
+  ]
+  if (required.some((name) => !process.env[name]?.trim())) return false
+  if (process.env.COOKIE_SECURE !== 'true' || process.env.TRUST_PROXY !== 'true') return false
+  const ffmpeg = process.env.FFMPEG_PATH?.trim()
+  return Boolean(ffmpeg && fs.existsSync(ffmpeg))
 }
 
 async function checkReadiness(): Promise<boolean> {
   const database = await pingDatabase()
   if (!database) return false
+  if (!checkProductionConfig()) return false
   return checkSchema()
 }
 
@@ -46,4 +66,3 @@ export async function GET() {
     if (timeout) clearTimeout(timeout)
   }
 }
-

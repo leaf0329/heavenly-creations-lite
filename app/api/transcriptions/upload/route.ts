@@ -1,53 +1,55 @@
-import path from 'node:path'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { requireUser } from '@/lib/auth'
 import { createJob } from '@/lib/jobs'
 import { enqueueJob } from '@/lib/job-queue'
-import { MultipartBodyError, readSingleFileMultipart } from '@/lib/multipart-body'
-import { STT_MAX_TOTAL_BYTES, STT_MAX_UPLOAD_BYTES, removeSttTemporaryPath, toPublicSttJob } from '@/lib/stt'
+import { deleteObject, isOwnedUploadObjectKey, statObject } from '@/lib/oss-storage'
+import { STT_MAX_UPLOAD_BYTES, toPublicSttJob } from '@/lib/stt'
 
 export const dynamic = 'force-dynamic'
 
-const fieldSchema = z.object({
+const bodySchema = z.object({
+  objectKey: z.string().trim().min(1).max(512),
+  filename: z.string().trim().min(1).max(255),
+  mimeType: z.string().trim().min(1).max(100),
+  size: z.number().int().positive().max(STT_MAX_UPLOAD_BYTES),
   title: z.string().trim().max(200).optional(),
-}).passthrough()
+}).strict()
 
 export async function POST(req: NextRequest) {
   const auth = await requireUser(req)
   if (!auth.ok) return auth.response
-  let filePath: string | null = null
+  let body: unknown
+  try { body = await req.json() } catch { return NextResponse.json({ error: '请求体必须是 JSON' }, { status: 400 }) }
+  const parsed = bodySchema.safeParse(body)
+  if (!parsed.success) return NextResponse.json({ error: '上传信息无效' }, { status: 400 })
+  const data = parsed.data
+  if (!isOwnedUploadObjectKey(data.objectKey, auth.user.id)) {
+    return NextResponse.json({ error: '上传文件不属于当前用户' }, { status: 403 })
+  }
   try {
-    const parsed = await readSingleFileMultipart(req, {
-      fileField: 'file',
-      maxFileBytes: STT_MAX_UPLOAD_BYTES,
-      maxTotalBytes: STT_MAX_TOTAL_BYTES,
-      maxFields: 4,
-      maxFieldBytes: 8 * 1024,
-      tempDir: path.join(process.cwd(), 'data', 'stt-temp'),
-    })
-    filePath = parsed.file.filePath
-    const fieldsResult = fieldSchema.safeParse(parsed.fields)
-    if (!fieldsResult.success) throw new MultipartBodyError('表单字段无效', 400)
-    const title = fieldsResult.data.title || parsed.file.filename
+    const object = await statObject(data.objectKey)
+    if (object.size !== data.size || object.size <= 0 || object.size > STT_MAX_UPLOAD_BYTES) {
+      await deleteObject(data.objectKey).catch(() => undefined)
+      return NextResponse.json({ error: '上传文件大小校验失败，请重新上传' }, { status: 400 })
+    }
     const job = await createJob({
       userId: auth.user.id,
       type: 'stt',
-      title,
-      input: { sourceFilename: parsed.file.filename, mimeType: parsed.file.mimeType },
+      title: data.title || data.filename,
+      input: { sourceFilename: data.filename, mimeType: data.mimeType },
       sourceKind: 'upload',
-      sourceFilename: parsed.file.filename,
-      temporaryPath: parsed.file.filePath,
-      sourceMetadata: { mimeType: parsed.file.mimeType, bytes: parsed.file.size },
+      sourceFilename: data.filename,
+      sourceMetadata: {
+        mimeType: object.contentType || data.mimeType,
+        bytes: object.size,
+        storage: 'oss',
+        ossObjectKey: data.objectKey,
+      },
     })
-    filePath = null
     enqueueJob()
     return NextResponse.json({ ok: true, job: toPublicSttJob(job) }, { status: 202 })
   } catch (error) {
-    if (filePath) await removeSttTemporaryPath(filePath)
-    if (error instanceof MultipartBodyError) {
-      return NextResponse.json({ error: error.message }, { status: error.status })
-    }
     console.error('[transcriptions/upload] failed', error instanceof Error ? error.message : 'unknown error')
     return NextResponse.json({ error: '上传转写任务创建失败' }, { status: 500 })
   }

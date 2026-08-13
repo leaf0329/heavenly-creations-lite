@@ -17,11 +17,22 @@ describe('health routes', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.pingDatabase.mockResolvedValue(true)
-    mocks.query.mockResolvedValue({ rows: [
-      { table_name: 'schema_migrations' },
-      { table_name: 'users' },
-      { table_name: 'auth_sessions' },
-    ] })
+    mocks.query
+      .mockResolvedValueOnce({ rows: [
+        { table_name: 'schema_migrations' },
+        { table_name: 'users' },
+        { table_name: 'auth_sessions' },
+        { table_name: 'auth_rate_limits' },
+        { table_name: 'service_configs' },
+        { table_name: 'skills' },
+        { table_name: 'profiles' },
+        { table_name: 'library_items' },
+        { table_name: 'jobs' },
+        { table_name: 'agent_conversations' },
+        { table_name: 'agent_messages' },
+        { table_name: 'agent_conversation_assets' },
+      ] })
+      .mockResolvedValueOnce({ rows: [{ count: 4 }] })
   })
 
   it('returns an uncached liveness payload without touching the database', async () => {
@@ -37,10 +48,9 @@ describe('health routes', () => {
     expect(response.status).toBe(200)
     await expect(response.json()).resolves.toEqual({ ok: true })
 
-    mocks.query.mockResolvedValueOnce({ rows: [{ table_name: 'users' }] })
+    mocks.query.mockReset().mockResolvedValueOnce({ rows: [{ table_name: 'users' }] })
     const notReady = await getReady()
     expect(notReady.status).toBe(503)
     await expect(notReady.json()).resolves.toEqual({ ok: false })
   })
 })
-

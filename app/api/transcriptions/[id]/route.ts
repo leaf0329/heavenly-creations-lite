@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { requireUser } from '@/lib/auth'
 import { deleteJobForUser, getJobForUser } from '@/lib/jobs'
 import { removeSttTemporaryPath, toPublicSttJob } from '@/lib/stt'
+import { deleteObject, isOwnedUploadObjectKey } from '@/lib/oss-storage'
 
 export const dynamic = 'force-dynamic'
 
@@ -35,5 +36,9 @@ export async function DELETE(req: NextRequest, context: Params) {
   const deleted = await deleteJobForUser(id, auth.user.id)
   if (!deleted) return NextResponse.json({ error: '任务状态已改变' }, { status: 409 })
   await removeSttTemporaryPath(job.temporaryPath)
+  const objectKey = typeof job.sourceMetadata.ossObjectKey === 'string' ? job.sourceMetadata.ossObjectKey : ''
+  if (objectKey && isOwnedUploadObjectKey(objectKey, auth.user.id)) {
+    await deleteObject(objectKey).catch(() => undefined)
+  }
   return NextResponse.json({ ok: true })
 }

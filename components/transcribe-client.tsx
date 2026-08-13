@@ -31,6 +31,12 @@ type ApiPayload = {
   items?: TranscriptionJob[]
   error?: string
   code?: string
+  upload?: {
+    method: 'PUT'
+    url: string
+    objectKey: string
+    headers: Record<string, string>
+  }
 }
 
 function statusLabel(status: string): string {
@@ -94,43 +100,57 @@ export default function TranscribeClient() {
     return () => { cancelled = true; window.clearInterval(interval) }
   }, [job])
 
-  const handleUpload = () => {
+  const handleUpload = async () => {
     if (!file || loading) return
     setLoading(true)
     setError('')
     setNotice('')
     setUploadProgress(0)
-    const form = new FormData()
-    form.append('file', file)
-    const xhr = new XMLHttpRequest()
-    xhr.open('POST', '/api/transcriptions/upload')
-    xhr.withCredentials = true
-    xhr.upload.onprogress = (event) => {
-      if (event.lengthComputable) setUploadProgress(Math.round((event.loaded / event.total) * 100))
-    }
-    xhr.onerror = () => {
-      setError('上传失败，请检查网络后重新上传视频')
+    try {
+      const prepareResponse = await fetch('/api/transcriptions/upload-url', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename: file.name, mimeType: file.type || 'application/octet-stream', size: file.size }),
+      })
+      const prepared = await jsonResponse(prepareResponse)
+      if (!prepareResponse.ok || !prepared.upload) throw new Error(prepared.error || '暂时无法创建上传地址')
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest()
+        xhr.open('PUT', prepared.upload!.url)
+        for (const [name, value] of Object.entries(prepared.upload!.headers)) xhr.setRequestHeader(name, value)
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) setUploadProgress(Math.round((event.loaded / event.total) * 100))
+        }
+        xhr.onerror = () => reject(new Error('上传失败，请检查网络后重新上传视频'))
+        xhr.onload = () => xhr.status >= 200 && xhr.status < 300
+          ? resolve()
+          : reject(new Error(`视频上传失败 (${xhr.status})`))
+        xhr.send(file)
+      })
+      const completeResponse = await fetch('/api/transcriptions/upload', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          objectKey: prepared.upload.objectKey,
+          filename: file.name,
+          mimeType: file.type || 'application/octet-stream',
+          size: file.size,
+        }),
+      })
+      const completed = await jsonResponse(completeResponse)
+      if (!completeResponse.ok || !completed.job) throw new Error(completed.error || '上传转写任务创建失败')
+      setJob(completed.job)
+      setNotice('文件已上传，正在排队转写')
+      setFile(null)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : '上传转写任务创建失败')
+    } finally {
       setLoading(false)
       setUploadProgress(null)
     }
-    xhr.onload = () => {
-      let payload: ApiPayload = {}
-      try {
-        const parsed: unknown = JSON.parse(xhr.responseText || '{}')
-        if (parsed && typeof parsed === 'object') payload = parsed as ApiPayload
-      } catch { /* handled by generic error below */ }
-      if (xhr.status >= 200 && xhr.status < 300 && payload.job) {
-        setJob(payload.job)
-        setNotice('文件已上传，正在排队转写')
-        setFile(null)
-        if (fileInputRef.current) fileInputRef.current.value = ''
-      } else {
-        setError(payload.error || '上传转写任务创建失败')
-      }
-      setLoading(false)
-      setUploadProgress(null)
-    }
-    xhr.send(form)
   }
 
   const handleUrl = async () => {

@@ -12,6 +12,7 @@ import {
 } from './jobs'
 import { extractAudio, splitAudio } from './media-command'
 import { downloadResolvedMedia, parseVideoUrl } from './video-parser'
+import { deleteObject, downloadObject, isOwnedUploadObjectKey } from './oss-storage'
 
 const TEMP_ROOT = path.resolve(process.cwd(), 'data', 'stt-temp')
 const DEFAULT_STT_TIMEOUT_MS = 15 * 60_000
@@ -134,10 +135,14 @@ async function transcribeAudioFile(audioPath: string): Promise<string> {
   return text
 }
 
-function uploadInputPath(job: JobRecord): string {
-  const pathValue = safeTemporaryPath(job.temporaryPath)
-  if (!pathValue || !fs.existsSync(pathValue)) throw new Error('本地上传文件已失效，请重新上传')
-  return pathValue
+function uploadObjectKey(job: JobRecord): string {
+  const objectKey = typeof job.sourceMetadata.ossObjectKey === 'string'
+    ? job.sourceMetadata.ossObjectKey
+    : ''
+  if (!objectKey || !isOwnedUploadObjectKey(objectKey, job.userId)) {
+    throw new Error('上传文件已失效，请重新上传')
+  }
+  return objectKey
 }
 
 function sourceKind(job: JobRecord): 'upload' | 'url' {
@@ -172,11 +177,15 @@ export async function processSttJob(job: JobRecord, processingToken?: string): P
   let segments: string[] = []
   let finalText = ''
   let failure: Error | null = null
+  let objectKey: string | null = null
 
   try {
     await fs.promises.mkdir(dir, { recursive: true })
     if (kind === 'upload') {
-      videoPath = uploadInputPath(job)
+      objectKey = uploadObjectKey(job)
+      videoPath = path.join(dir, 'source-video')
+      await updateProgress(job, processingToken, 15, '正在读取上传视频')
+      await downloadObject(objectKey, videoPath)
     } else {
       await updateProgress(job, processingToken, 15, '正在解析视频链接')
       const parsed = await parseVideoUrl(job.sourceUrl!)
@@ -223,6 +232,7 @@ export async function processSttJob(job: JobRecord, processingToken?: string): P
     await removePath(audioPath)
     for (const segment of segments) await removePath(segment)
     await fs.promises.rm(dir, { recursive: true, force: true }).catch(() => undefined)
+    if (objectKey) await deleteObject(objectKey).catch(() => undefined)
     if (processingToken) await clearTemporaryPath(job.id, processingToken).catch(() => undefined)
     void failure
   }

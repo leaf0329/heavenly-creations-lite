@@ -16,18 +16,23 @@
     "test:watch": "vitest",
     "db:migrate": "node scripts/migrate-database.mjs",
     "db:init-owner": "node scripts/init-owner.mjs",
+    "db:init-member": "node scripts/init-member.mjs",
+    "db:migrate-company-configs": "node scripts/migrate-company-configs.mjs",
     "db:start": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-portable-postgres.ps1",
     "db:stop": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/stop-portable-postgres.ps1",
     "check": "npm test && npm run typecheck && npm run lint && npm run build"
   },
   "dependencies": {
+    "@alicloud/credentials": "^2.4.5",
     "@langchain/core": "1.2.4",
     "@langchain/langgraph": "1.4.8",
     "@langchain/langgraph-checkpoint-postgres": "1.0.4",
     "@langchain/openai": "1.5.5",
     "@node-rs/jieba": "2.0.1",
+    "ali-oss": "^6.23.0",
     "bcryptjs": "2.4.3",
     "busboy": "1.6.0",
+    "graceful-fs": "^4.2.11",
     "lucide-react": "0.400.0",
     "next": "15.5.21",
     "pg": "8.22.0",
@@ -39,6 +44,7 @@
     "zod": "4.4.3"
   },
   "devDependencies": {
+    "@types/ali-oss": "^6.23.3",
     "@types/bcryptjs": "2.4.6",
     "@types/busboy": "1.5.4",
     "@types/node": "20.19.43",
