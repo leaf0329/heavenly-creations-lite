@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily HCLite PostgreSQL backup
+
+[Timer]
+OnCalendar=*-*-* 03:35:00 Asia/Shanghai
+RandomizedDelaySec=10m
+Persistent=true
+Unit=hclite-db-backup.service
+
+[Install]
+WantedBy=timers.target

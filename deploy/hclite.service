@@ -1,0 +1,30 @@
+[Unit]
+Description=HCLite Next.js application
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=hclite
+Group=hclite
+WorkingDirectory=/opt/hclite
+EnvironmentFile=/etc/hclite.env
+Environment=HOME=/tmp
+Environment=PORT=3001
+Environment=NODE_OPTIONS=--max-old-space-size=1024
+ExecStart=/usr/bin/env npm start
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=45
+KillSignal=SIGTERM
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/opt/hclite/data /opt/hclite/.next/cache
+LimitNOFILE=32768
+MemoryMax=2G
+MemorySwapMax=1G
+
+[Install]
+WantedBy=multi-user.target
