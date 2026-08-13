@@ -4,9 +4,15 @@ const SESSION_COOKIE_NAME = 'hc_session'
 
 export function middleware(request: NextRequest) {
   if (!request.cookies.get(SESSION_COOKIE_NAME)?.value) {
-    const login = new URL('/login', request.url)
-    login.searchParams.set('next', `${request.nextUrl.pathname}${request.nextUrl.search}`)
-    return NextResponse.redirect(login)
+    const next = `${request.nextUrl.pathname}${request.nextUrl.search}`
+    const location = `/login?${new URLSearchParams({ next }).toString()}`
+
+    // Keep the redirect relative so reverse-proxy deployments never expose the
+    // application's internal host or port (for example, localhost:3001).
+    return new NextResponse(null, {
+      status: 307,
+      headers: { location },
+    })
   }
   return NextResponse.next()
 }

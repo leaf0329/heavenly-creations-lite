@@ -6,7 +6,10 @@ describe('workspace middleware', () => {
   it('redirects a request without a session cookie to login', () => {
     const response = middleware(new NextRequest('http://localhost/agent?mode=topic'))
     expect(response.status).toBe(307)
-    const location = new URL(response.headers.get('location') || '')
+    const rawLocation = response.headers.get('location') || ''
+    const location = new URL(rawLocation, 'https://a.private.meikaai.cn')
+    expect(rawLocation.startsWith('/')).toBe(true)
+    expect(rawLocation).not.toContain('localhost')
     expect(location.pathname).toBe('/login')
     expect(location.searchParams.get('next')).toBe('/agent?mode=topic')
   })
