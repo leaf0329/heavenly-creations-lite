@@ -2,7 +2,7 @@
 
 ## 1. 边界
 
-HCLite 位于 `C:\Users\Enys10021\Desktop\work1\HCLite`，是独立 Git 仓库。它不依赖 HeavenlyCreations 的数据库或部署目录。当前仍仅在本地运行，尚未部署到服务器；线上域名与 OSS 资源已经预先规划，其中 OSS Bucket 已创建并完成安全配置。
+HCLite 位于 `C:\Users\Enys10021\Desktop\work1\HCLite`，是独立 Git 仓库。它不依赖 HeavenlyCreations 的数据库或部署目录。2026-08-13 已部署到服务器，并通过 `https://a.private.meikaai.cn` 对内使用；旧版继续独立运行在 `https://meikaai.cn`。
 
 保留功能：单主账户与子用户、纯文案 Agent、六类文案、视频上传/链接转写、任务历史与重试、Skill、门店档案、团队/私有信息库、四类共享 API 配置。
 
@@ -50,7 +50,8 @@ Agent 只创建六类文案任务，默认输出纯文本，不自动追加镜�
 
 ## 5. 转写安全
 
-- 上传使用流式 multipart，不把整段视频读入内存。
+- 浏览器先向应用申请 10 分钟有效的 OSS V4 签名地址，再直接 PUT 到私有 Bucket；应用只接收对象元数据，不中转整段视频。
+- 后台通过深圳 OSS 内网 Endpoint 下载视频到任务专属临时目录，任务终态自动删除 OSS 对象和本地临时文件。
 - 视频链接固定通过 TikHub 解析，支持抖音、小红书、快手、B站、西瓜/头条、微信视频号和微博；不支持 TikTok、YouTube 等国外平台。
 - TikHub 使用逐平台字段提取，抖音 Web 无有效媒体时回退 App V3；B站先取分 P 的 CID，再取播放地址并优先下载独立音轨。
 - 视频号使用 `raw=false` 同时取得媒体 URL 与匹配的 `decode_key`；下载后通过 `vendor/wechat-channels-decrypt` 中附带 MIT 许可证的微信官方 WASM 本地解密前 131072 字节，不依赖浏览器或外部解密服务。发布构建时必须一并保留该 vendor 目录。
@@ -115,27 +116,31 @@ npm audit --omit=dev
 
 文字和转写任务共用 PostgreSQL 队列，使用处理令牌、租约、心跳和过期任务恢复避免重复写入。任务创建后会启动进程内轮询器，每 2 秒扫描一次待处理任务。
 
-当前代码仍有一个上线阻断项：应用进程重启后，如果没有新的任务请求触发 `enqueueJob()`，轮询器不会自动启动，已有 pending/过期 processing 任务可能等待到下一次新任务才恢复。部署前必须增加进程启动时的队列引导，并验证“任务处理中重启应用 → 租约过期 → 自动恢复或安全失败”的行为。
+应用通过根目录 `instrumentation.ts` 在 Node.js 运行时启动时完成数据库初始化并启动队列轮询器；重启后无需等待新请求即可扫描 pending/过期 processing 任务。
 
-## 7. 线上部署规划（尚未实施）
+## 7. 线上部署（已实施）
 
 目标是在现有阿里云服务器 `120.25.199.231` 上与旧版 HeavenlyCreations 并行运行：
 
 | 项目 | 域名 | 本机监听 | 数据库 | 发布目录 |
 |---|---|---:|---|---|
 | 旧版 HeavenlyCreations | `https://meikaai.cn` | `127.0.0.1:3000` | 现有旧版数据库 | `/opt/heavenly-creations` |
-| HCLite | `https://a.private.meikaai.cn` | `127.0.0.1:3001` | 新建独立数据库和数据库用户 | `/opt/hclite` |
+| HCLite | `https://a.private.meikaai.cn` | `127.0.0.1:3001` | `hclite` / `hclite_app` | `/opt/hclite` |
 
 两套应用必须使用独立的环境变量文件、Systemd 服务、数据库、发布目录、日志和回滚目录。HCLite 的部署、重启或回滚不得影响旧版服务。
 
 服务器已核查为 4 核 CPU、约 7.1 GiB 内存、约 99 GB 磁盘；在 HCLite 不超过 5 人使用的前提下，资源足够并行运行。视频处理应把本地 FFmpeg 并发限制为 2 个任务，其余任务排队。
 
-Linux 部署时必须处理以下兼容项：
+当前生产事实：
 
-- 不使用 Windows 便携 PostgreSQL 和 PowerShell 建库流程，改用服务器现有 PostgreSQL 创建独立数据库。
-- 不使用 `.local-tools/ffmpeg.exe`，将 `FFMPEG_PATH` 指向 Linux 的 `/usr/bin/ffmpeg`（以服务器实际安装路径为准）。
-- HCLite 的正式应用来源配置为 `https://a.private.meikaai.cn`。
-- 为 `a.private.meikaai.cn` 新增 DNS A 记录、独立 Nginx 站点和 HTTPS 证书；当前 `meikaai.cn` 证书不覆盖该三级域名。
+- 生产环境文件为 `/etc/hclite.env`，`root:root:600`；不与旧版环境文件混用。
+- systemd 单元为 `hclite.service`，内存上限 2 GiB；数据库备份由 `hclite-db-backup.timer` 每日执行。
+- Linux FFmpeg 固定使用 `/usr/bin/ffmpeg`。
+- `a.private.meikaai.cn` A 记录指向 `120.25.199.231`，Nginx 按 Host 转发到 3001。
+- 独立 Let's Encrypt 证书名为 `a.private.meikaai.cn`，当前有效期至 2026-11-11，自动续期由现有 `certbot.timer` 管理。
+- 当前发布目录 `/opt/hclite-builds/e67448833799b2fbfd4ef3e78d952dca90be98a3`；上一版本保留为唯一应用回滚版本。
+- 数据库日常备份位于 `/opt/hclite-backups/daily`，自定义格式、带 SHA-256，滚动保留 7 天。
+- 应用日志使用 systemd journal，不另写应用日志文件；由主机 journald 的统一保留策略管理。
 
 ## 8. HCLite OSS 配置（已完成控制台配置）
 
@@ -176,7 +181,7 @@ https://a.private.meikaai.cn
 
 允许的方法为 `GET`、`PUT`、`HEAD`；允许请求头为 `Content-Type`、`Content-Length`、`x-oss-*`；暴露响应头为 `ETag`、`Content-Length`；缓存时间为 600 秒，并启用了 `Vary: Origin`。
 
-已完成外部验收：目标域名的 OPTIONS 预检返回 200；`https://meikaai.cn`、旧域名和公网 IP 来源均不获得跨域授权；匿名访问 Bucket 返回 403。
+已完成外部验收：目标域名的 OPTIONS 预检返回 200；`https://meikaai.cn`、旧域名和公网 IP 来源均不获得跨域授权；匿名访问 Bucket 返回 403。Bucket Policy 仅允许实例角色 `meika-prod-ecs-role` 的会话对 `uploads/*` 执行 `PutObject`、`GetObject` 和 `DeleteObject`，且“阻止公共访问”保持开启。
 
 部署时使用的非敏感配置如下，具体变量名应在完成 HCLite OSS 代码适配后以代码定义为准，不得直接猜测：
 
@@ -189,29 +194,24 @@ OSS_PUBLIC_ENDPOINT=https://oss-cn-shenzhen.aliyuncs.com
 
 AccessKey ID、AccessKey Secret、数据库密码、主账户密码、Cookie 和临时签名 URL 不得写入本文档或 Git。生产凭据应放入服务器权限受限的环境变量文件，并将 OSS 权限限制到 `meika-hclite-user-sz-01`。
 
-## 9. 上线前待办
+## 9. 上线结果与后续验收
 
-以下事项尚未完成，不能因 OSS 已配置而视为 HCLite 已可上线：
+已完成：独立数据库与四项迁移、主/子账户初始化、四类公司 API 配置重新加密迁移、启动队列引导、生产 readiness、DNS/HTTPS/Nginx、systemd、每日备份、OSS 签名上传/后台内网读取/终态清理，以及真实文字模型最小调用。登录 Cookie、四类配置本地解密校验、上传创建任务和旧版 3000 健康状态均通过。
 
-1. 适配并测试 HCLite 的 OSS 私有存储、签名上传、后台内网读取和任务终态清理逻辑。
-2. 为 `a.private.meikaai.cn` 添加 DNS 解析。
-3. 为三级域名签发并配置 HTTPS 证书。
-4. 创建 HCLite 独立 PostgreSQL 数据库、数据库用户和受限生产环境变量文件。
-5. 安装/确认 Linux FFmpeg，设置并验证 `FFMPEG_PATH`。
-6. 创建独立的 `hclite.service`，监听 `127.0.0.1:3001`，配置内存限制和失败重启。
-7. 添加 Nginx 域名分流，并保持未知 Host/IP 访问拒绝策略。
-8. 限制视频本地处理并发为 2，验证 5 人以内的文案与转写任务队列。
-9. 完成数据库迁移、主账户初始化、登录、文案、上传、链接转写、7 天生命周期和回滚验收。
-10. 增加应用启动时的任务队列引导，确保重启后无需等待新请求即可恢复待处理任务。
-11. 为 HCLite 增加独立的构建、发布、备份、健康检查、日志轮转和回滚脚本；不得直接复用旧版服务名或目录。
-12. 扩展 readiness，至少检查全部迁移是否应用、核心任务表存在和生产关键配置可读取；不得只检查前三张认证表。
-13. 明确生产 API 配置录入/迁移方式，并对文字、Agent、音频和 TikHub 分别执行真实连通测试。
+仍建议在实际业务使用前完成：
+
+1. 用一条真实的国内热门平台视频链接分别验收 TikHub 解析、下载、音频提取和转写；测试素材不得含敏感个人信息。
+2. 用一段真实但可删除的视频完成 iPhone Safari 的大文件直传、进度显示、转写和删除验收。
+3. 在下一次证书维护窗口执行 `certbot renew --dry-run`，并持续检查两个证书的自动续期。
+4. 将 HCLite 数据库备份加密复制到独立私有存储，并做一次恢复演练；当前备份仍与数据库同机。
 
 ## 10. Git 与发布来源
 
 - 独立远程仓库：`https://github.com/leaf0329/heavenly-creations-lite.git`。
 - 发布分支：`main`。
-- 审计时本地与 `origin/main` 均为 `29b69e1edd5713454d989f2bc1ad4645f4299d9e`；后续代码适配完成后必须重新记录唯一部署提交号。
+- 当前生产代码提交：`e67448833799b2fbfd4ef3e78d952dca90be98a3`。
+- 当前生产归档 SHA-256：`1D014173D128D254381318F587940BCC58DEBE429BC09CE24961C21D89D4C6F2`。
+- 生产初始化账户为 `MeikaAdmin` 与 `MeikaUser`（数据库规范化为小写且登录不区分大小写）；随机密码只保存在本地忽略文件 `password.txt`，不在 Git、服务器环境文件或交接文档中保存。
 - 生产发布包只能从已确认并推送的 Git 提交创建，不能直接打包含 `.env.local`、`.local-postgres`、`.local-tools`、`.next`、`node_modules`、日志或本地数据库的工作目录。
 - 每次发布记录完整提交号、归档 SHA-256、Next.js Build ID、迁移清单、数据库备份路径和回滚目录。
 - 服务器访问 npm 较慢时，可以在本机准备 Linux x64 依赖缓存后上传，但严禁把 Windows `node_modules` 直接复制到 Linux。
