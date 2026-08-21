@@ -118,7 +118,7 @@ export async function tryProcessJob(jobId: string): Promise<boolean> {
     const profileContext = await visibleAssetContext('profiles', stringArray(input.profileIds), job.userId)
     const references = await libraryContext(job.userId, input, basePrompt)
     const systemPrompt = [
-      '你是 HCLite 的专业中文文案助手。',
+      '你是美咖自媒体的专业中文文案助手。',
       skillContext ? `\n【用户选择的 Skill】\n${skillContext}` : '',
       profileContext ? `\n【用户选择的门店档案】\n${profileContext}` : '',
     ].filter(Boolean).join('\n')

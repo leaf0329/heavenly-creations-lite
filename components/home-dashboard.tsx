@@ -31,7 +31,7 @@ export function HomeDashboard() {
     <div className="space-y-10 pb-8">
       <section className="dashboard-hero">
         <div className="relative z-10 max-w-2xl">
-          <p className="eyebrow">HCLITE / WORKSPACE</p>
+          <p className="eyebrow">MEIKAAI / CONTENT WORKSPACE</p>
           <h1 className="dashboard-title">把日常灵感，<br className="hidden sm:block" />放进一个安静的工作台。</h1>
           <p className="dashboard-copy">这里聚合团队的文案 Agent、常用创作方式和视频转文字。先从一个小想法开始，剩下的交给工作台。</p>
           <div className="mt-7 flex flex-wrap gap-3">
@@ -39,14 +39,7 @@ export function HomeDashboard() {
             <SoftButton href="/create" variant="secondary">浏览创作方式 <ArrowUpRight size={16} /></SoftButton>
           </div>
         </div>
-        <div className="dashboard-hero-orbit" aria-hidden="true">
-          <span className="dashboard-orbit-ring dashboard-orbit-ring-large" />
-          <span className="dashboard-orbit-ring dashboard-orbit-ring-small" />
-          <span className="dashboard-orbit-dot dashboard-orbit-dot-one" />
-          <span className="dashboard-orbit-dot dashboard-orbit-dot-two" />
-          <span className="dashboard-orbit-card dashboard-orbit-card-top">今天写点什么？</span>
-          <span className="dashboard-orbit-card dashboard-orbit-card-bottom"><Sparkles size={14} />有灵感就记下来</span>
-        </div>
+        <div className="dashboard-hero-art" aria-hidden="true"><span>今日创作</span><b>安静落笔，<br />让灵感有迹可循。</b></div>
       </section>
 
       <section>

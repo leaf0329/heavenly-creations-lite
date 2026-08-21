@@ -269,3 +269,160 @@ a { color: inherit; text-decoration: none; }
   .library-filters .filter-chip { flex: 1; }
   .login-card { padding: 29px 22px 25px; }
 }
+
+/* MeikaAI · 东方静奢视觉系统 */
+:root {
+  color-scheme: light;
+  --ink: #27241f;
+  --muted: #6e675c;
+  --line: rgba(77,66,52,.14);
+  --rose: #9f493d;
+  --rose-dark: #7d362f;
+  --cream: #eee8dc;
+  --white: rgba(253,250,244,.86);
+  --surface: rgba(253,250,244,.86);
+  --surface-solid: #fbf8f1;
+  --surface-soft: rgba(241,235,224,.82);
+  --faint: #9c9385;
+  --amber: #aa7c43;
+  --shadow: 0 18px 60px rgba(69,52,34,.11);
+}
+.dark {
+  color-scheme: dark;
+  --ink: #f0eadf;
+  --muted: #bcb3a4;
+  --line: rgba(241,231,215,.12);
+  --rose: #c56f5f;
+  --rose-dark: #da8372;
+  --cream: #151512;
+  --white: rgba(31,30,26,.88);
+  --surface: rgba(31,30,26,.88);
+  --surface-solid: #211f1b;
+  --surface-soft: rgba(43,41,35,.82);
+  --faint: #857d71;
+  --amber: #c79b62;
+  --shadow: 0 22px 70px rgba(0,0,0,.3);
+}
+html, body { background: var(--cream); color: var(--ink); }
+body {
+  background-image: none;
+  letter-spacing: -.01em;
+}
+.workspace-app { background-color: var(--cream); background-image: linear-gradient(90deg, rgba(238,232,220,.42), rgba(238,232,220,.58)), url('/brand/workspace-light.webp'); background-size: cover; background-position: center; background-attachment: fixed; }
+.dark .workspace-app { background-image: linear-gradient(90deg, rgba(15,15,12,.58), rgba(15,15,12,.72)), url('/brand/workspace-dark.webp'); }
+
+.meika-brand { min-width: 0; display: inline-flex; align-items: center; gap: 10px; }
+.meika-brand-mark { width: 38px; height: 38px; flex: 0 0 38px; display: inline-flex; filter: drop-shadow(0 7px 13px rgba(49,37,24,.13)); }
+.meika-brand-mark svg { width: 100%; height: 100%; }
+.meika-brand-mark rect { fill: #292722; }
+.meika-brand-mark .meika-gate, .meika-brand-mark .meika-mountain { fill: none; stroke: #f7f1e6; stroke-width: 2.15; stroke-linecap: round; stroke-linejoin: round; }
+.meika-brand-mark circle { fill: #a64f42; }
+.meika-brand-copy { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.meika-brand-copy strong { color: var(--ink); font-size: 15px; font-weight: 720; letter-spacing: .03em; white-space: nowrap; }
+.meika-brand-copy small { color: var(--faint); font-size: 7px; font-weight: 700; letter-spacing: .2em; white-space: nowrap; }
+.meika-brand.compact { gap: 8px; }
+.meika-brand.compact .meika-brand-mark { width: 31px; height: 31px; flex-basis: 31px; }
+.meika-brand.compact .meika-brand-copy strong { font-size: 13px; }
+
+.workspace-sidebar { background: color-mix(in srgb, var(--surface-solid) 86%, transparent); border-color: var(--line); box-shadow: 10px 0 34px rgba(56,43,29,.045); backdrop-filter: blur(22px); }
+.workspace-brand { min-height: 48px; }
+.workspace-brand-title { color: var(--ink); font-family: "Songti SC", "STSong", serif; font-size: 16px; }
+.workspace-brand-subtitle, .workspace-nav-caption { color: var(--faint); }
+.workspace-nav-link { min-height: 42px; color: var(--muted); border-radius: 9px; }
+.workspace-nav-link:hover { color: var(--ink); background: var(--surface-soft); }
+.workspace-nav-link-active { color: var(--rose-dark); background: color-mix(in srgb, var(--rose) 10%, var(--surface-soft)); }
+.workspace-sidebar-footer { border-color: var(--line); }
+.workspace-user-card p:first-child { color: var(--ink) !important; }
+.workspace-user-card p:last-child { color: var(--faint) !important; }
+.workspace-logout { color: var(--muted); }
+.workspace-main { animation: meika-page-in .26s ease both; }
+@keyframes meika-page-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.workspace-mobile-actions { display: flex; align-items: center; gap: 5px; }
+.theme-toggle { width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; color: var(--muted); background: var(--surface); border: 1px solid var(--line); border-radius: 9px; }
+.workspace-sidebar-footer .theme-toggle { width: 100%; margin-bottom: 6px; }
+
+.panel, .shortcut-card, .creation-card, .mini-info-card, .dashboard-hero, .login-card {
+  color: var(--ink);
+  background: var(--surface);
+  border-color: var(--line);
+  border-radius: 12px;
+  box-shadow: 0 8px 26px rgba(61,46,30,.055);
+  backdrop-filter: blur(14px);
+}
+.panel { padding: 22px; }
+.page-intro h1, .dashboard-title, .section-label, .login-card h1 { color: var(--ink) !important; }
+.page-intro h1, .dashboard-title, .login-card h1 { font-family: "Songti SC", "STSong", "Noto Serif SC", serif; font-weight: 600; }
+.eyebrow { color: var(--rose); }
+.soft-button { border-radius: 9px; }
+.soft-button-primary { color: #fff8ef; background: var(--rose); box-shadow: 0 9px 22px color-mix(in srgb, var(--rose) 22%, transparent); }
+.soft-button-primary:hover { background: color-mix(in srgb, var(--rose) 88%, black); }
+.soft-button-secondary { color: var(--ink); background: var(--surface); border-color: var(--line); }
+.form-field > span, .resource-row b, .agent-side-link b, .account-link b { color: var(--muted); }
+.form-field input, .form-field textarea, .form-field select, .history-search input, .prompt-textarea, .agent-textarea { color: var(--ink); background: color-mix(in srgb, var(--surface-solid) 88%, transparent); border-color: var(--line); border-radius: 9px; }
+.form-field input:focus, .form-field textarea:focus, .form-field select:focus, .history-search input:focus, .prompt-textarea:focus, .agent-textarea:focus { border-color: color-mix(in srgb, var(--rose) 60%, var(--line)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--rose) 10%, transparent); }
+.selection-chip, .status-pill { color: var(--muted); background: var(--surface-soft); border-color: var(--line); }
+
+.dashboard-hero { min-height: 300px; display: grid; grid-template-columns: minmax(0,1fr) 270px; align-items: end; gap: 30px; padding: 38px; background-image: linear-gradient(100deg, rgba(251,248,241,.86) 0%, rgba(251,248,241,.68) 58%, rgba(251,248,241,.12) 100%), url('/brand/material-collage.webp'); background-size: cover; background-position: center; border: 0; }
+.dark .dashboard-hero { background-image: linear-gradient(100deg, rgba(29,28,24,.88) 0%, rgba(29,28,24,.72) 60%, rgba(29,28,24,.3) 100%), url('/brand/material-collage.webp'); }
+.dashboard-title { font-size: clamp(2rem, 4vw, 3.3rem); letter-spacing: -.055em; }
+.dashboard-copy { color: var(--muted); }
+.dashboard-hero-art { align-self: end; padding: 18px; color: var(--ink); background: color-mix(in srgb, var(--surface-solid) 72%, transparent); border: 1px solid var(--line); border-radius: 10px; backdrop-filter: blur(10px); }
+.dashboard-hero-art span { color: var(--rose); font-size: 9px; font-weight: 700; letter-spacing: .15em; }
+.dashboard-hero-art b { display: block; margin-top: 8px; color: var(--muted); font-family: "Songti SC", "STSong", serif; font-size: 14px; font-weight: 500; line-height: 1.65; }
+.shortcut-card:hover, .creation-card:hover { background: var(--surface-solid); box-shadow: var(--shadow); }
+.shortcut-icon-rose, .agent-avatar, .agent-empty-orb, .upload-dropzone-icon, .resource-row-icon-rose, .agent-side-icon { color: var(--rose); background: color-mix(in srgb, var(--rose) 10%, var(--surface-soft)); }
+.shortcut-icon-sand, .resource-row-icon-sand { color: var(--amber); background: color-mix(in srgb, var(--amber) 11%, var(--surface-soft)); }
+.shortcut-icon-plum, .resource-row-icon-plum { color: #747765; background: color-mix(in srgb, #747765 11%, var(--surface-soft)); }
+
+.login-page { min-height: 100dvh; display: grid; grid-template-columns: minmax(420px,1.05fr) minmax(430px,.95fr); align-items: stretch; justify-content: stretch; padding: 0; background: #d8c5ad url('/brand/login-amber.webp') center/cover no-repeat; }
+.login-visual { display: flex; flex-direction: column; justify-content: space-between; padding: clamp(36px,5vw,76px); color: #2e261f; background: transparent; border: 0; box-shadow: none; backdrop-filter: none; }
+.login-visual .meika-brand-copy strong, .login-visual .meika-brand-copy small { color: currentColor; }
+.login-visual-copy { max-width: 720px; margin: auto 0; padding: 60px 0; }
+.login-visual-copy h1 { margin: 20px 0 24px; font-family: "Songti SC", "STSong", serif; font-size: clamp(45px,5.2vw,76px); font-weight: 500; letter-spacing: -.05em; line-height: 1.15; }
+.typewriter-text { display: inline; white-space: pre-line; }
+.typewriter-text::after { content: none !important; display: none !important; }
+.login-visual-copy > p:last-child { max-width: 560px; color: rgba(46,38,31,.68); font-size: 14px; line-height: 1.9; }
+.login-visual-foot { display: flex; align-items: center; gap: 8px; color: rgba(46,38,31,.58); font-size: 11px; }
+.login-form-side { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 0; padding: 34px; background: rgba(238,232,220,.72); backdrop-filter: blur(19px); }
+.login-card { width: min(100%,420px); padding: 38px; box-shadow: var(--shadow); }
+.login-brand { display: none; }
+.login-mobile-lockup { display: none; }
+.login-footer { position: static; margin-top: 20px; color: rgba(72,62,51,.62); }
+.login-note { color: var(--faint); }
+.login-heading > p:first-child { color: var(--muted); font-size: 13px; }
+.login-heading h1 { font-family: "Songti SC", "STSong", serif; font-weight: 600; }
+.dark .login-page { background: linear-gradient(rgba(22,18,14,.12), rgba(22,18,14,.2)), url('/brand/login-amber.webp') center / cover no-repeat !important; }
+.dark .login-visual { color: #f4ecdf; }
+.dark .login-visual-copy > p:last-child, .dark .login-visual-foot { color: rgba(244,236,223,.68); }
+.dark .login-form-side { background: rgba(17,17,14,.52); }
+.dark .workspace-mobile-drawer { background: var(--surface-solid); }
+.dark :is(.text-ink, .text-stone-700, .text-stone-800, .text-stone-900) { color: var(--ink) !important; }
+.dark :is(.text-stone-400, .text-stone-500, .text-stone-600) { color: var(--muted) !important; }
+.dashboard-hero::before, .dashboard-hero::after { content: none !important; display: none !important; }
+
+@media (max-width: 900px) {
+  body { background-attachment: scroll; }
+  .workspace-mobile-header, .workspace-bottom-nav { background: color-mix(in srgb, var(--surface-solid) 91%, transparent); border-color: var(--line); backdrop-filter: blur(18px); }
+  .workspace-mobile-brand { color: var(--ink); }
+  .workspace-menu-button { color: var(--muted); }
+  .login-page { display: block; background-position: 63% center; }
+  .login-visual { display: none; }
+  .login-form-side { min-height: 100dvh; padding: 24px; background: linear-gradient(180deg, rgba(42,31,22,.16), rgba(238,232,220,.84)); }
+  .login-mobile-lockup { display: block; width: min(100%,420px); margin-bottom: 34px; }
+  .login-mobile-lockup .meika-brand-copy strong, .login-mobile-lockup .meika-brand-copy small { color: #f7efe3; text-shadow: 0 1px 7px rgba(0,0,0,.3); }
+  .dashboard-hero { grid-template-columns: 1fr; }
+  .dashboard-hero-art { display: none; }
+}
+
+@media (max-width: 640px) {
+  .workspace-content { padding: 20px 14px 34px; }
+  .dashboard-hero { min-height: 390px; display: flex; justify-content: flex-end; padding: 25px 21px; background-position: 58% center; }
+  .dashboard-title { font-size: 2.2rem; }
+  .panel, .shortcut-card, .creation-card { border-radius: 11px; }
+  .login-form-side { padding: 20px 16px; }
+  .login-card { padding: 30px 22px 26px; border-radius: 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}

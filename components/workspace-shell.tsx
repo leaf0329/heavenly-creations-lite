@@ -23,6 +23,8 @@ import {
 } from 'lucide-react'
 import { useState } from 'react'
 import { AuthProvider, useAuth } from './auth-context'
+import BrandIdentity, { BrandMark } from './brand-identity'
+import { ThemeToggle } from './theme-toggle'
 
 type NavItem = {
   href: string
@@ -92,14 +94,11 @@ function ShellContent({ children }: { children: React.ReactNode }) {
     <div className="workspace-app">
       <aside className={`workspace-sidebar ${collapsed ? 'workspace-sidebar-collapsed' : ''}`}>
         <div className="workspace-brand">
-          <Link href="/" className="workspace-brand-mark" aria-label="回到 HCLite 首页">
-            <span className="workspace-brand-dot" />
-            <span className="workspace-brand-word">HC</span>
-          </Link>
+          <Link href="/" className="workspace-brand-mark" aria-label="回到美咖自媒体首页"><BrandMark /></Link>
           {!collapsed && (
             <div className="min-w-0">
-              <p className="workspace-brand-title">HCLite</p>
-              <p className="workspace-brand-subtitle">团队文案工作台</p>
+              <p className="workspace-brand-title">美咖自媒体</p>
+              <p className="workspace-brand-subtitle">MEIKAAI · 内容工作台</p>
             </div>
           )}
           <button
@@ -132,6 +131,7 @@ function ShellContent({ children }: { children: React.ReactNode }) {
               </div>
             )}
           </div>
+          {!collapsed && <ThemeToggle />}
           <button type="button" className="workspace-logout" onClick={handleLogout} title="退出登录">
             <LogOut size={17} />
             {!collapsed && <span>退出登录</span>}
@@ -140,13 +140,8 @@ function ShellContent({ children }: { children: React.ReactNode }) {
       </aside>
 
       <header className="workspace-mobile-header">
-        <Link href="/" className="workspace-mobile-brand" aria-label="回到首页">
-          <span className="workspace-brand-dot" />
-          <span>HCLite</span>
-        </Link>
-        <button type="button" className="workspace-menu-button" onClick={() => setMobileMenuOpen(true)} aria-label="打开导航">
-          <Menu size={22} />
-        </button>
+        <Link href="/" className="workspace-mobile-brand" aria-label="回到首页"><BrandIdentity compact /></Link>
+        <div className="workspace-mobile-actions"><ThemeToggle /><button type="button" className="workspace-menu-button" onClick={() => setMobileMenuOpen(true)} aria-label="打开导航"><Menu size={22} /></button></div>
       </header>
 
       {mobileMenuOpen && (
@@ -154,7 +149,7 @@ function ShellContent({ children }: { children: React.ReactNode }) {
           <button type="button" className="workspace-mobile-scrim" onClick={closeMobileMenu} aria-label="关闭导航" />
           <aside className="workspace-mobile-drawer">
             <div className="flex items-center justify-between">
-              <div className="workspace-mobile-brand"><span className="workspace-brand-dot" /><span>HCLite</span></div>
+              <div className="workspace-mobile-brand"><BrandIdentity compact /></div>
               <button type="button" className="workspace-menu-button" onClick={closeMobileMenu} aria-label="关闭导航"><X size={21} /></button>
             </div>
             <nav className="mt-7 space-y-1" onClick={closeMobileMenu}>
