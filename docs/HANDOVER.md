@@ -10,7 +10,7 @@ HCLite 位于 `C:\Users\Enys10021\Desktop\work1\HCLite`，是独立 Git 仓库�
 
 ## 2. 运行结构
 
-- Web：Next.js 15，桌面侧栏与移动端底部导航。
+- Web：Next.js 15，桌面侧栏与移动端底部导航；支持 Manifest、主屏幕图标和独立窗口形式的轻量 PWA，不注册 Service Worker，不缓存接口或用户数据。
 - 数据库：项目专属 PostgreSQL 17，默认 `127.0.0.1:55433/hc_lite`。
 - 数据目录：`.local-postgres/`，不进入 Git。
 - 临时转写目录：`data/stt-temp/`，不进入 Git，任务终态自动清理。
@@ -138,7 +138,7 @@ npm audit --omit=dev
 - Linux FFmpeg 固定使用 `/usr/bin/ffmpeg`。
 - `a.private.meikaai.cn` A 记录指向 `120.25.199.231`，Nginx 按 Host 转发到 3001。
 - 独立 Let's Encrypt 证书名为 `a.private.meikaai.cn`，当前有效期至 2026-11-11，自动续期由现有 `certbot.timer` 管理。
-- 当前发布目录 `/opt/hclite-builds/e67448833799b2fbfd4ef3e78d952dca90be98a3`；上一版本保留为唯一应用回滚版本。
+- 当前生产目录为 `/opt/hclite`，运行提交 `63887e773601ec962e1f0a3a9ffe5c6ca75524e6`；上一版本通过 `/opt/hclite-builds/previous-20260821T113525Z-e67448833799` 保留为唯一应用回滚版本。
 - 数据库日常备份位于 `/opt/hclite-backups/daily`，自定义格式、带 SHA-256，滚动保留 7 天。
 - 应用日志使用 systemd journal，不另写应用日志文件；由主机 journald 的统一保留策略管理。
 
@@ -209,9 +209,18 @@ AccessKey ID、AccessKey Secret、数据库密码、主账户密码、Cookie 和
 
 - 独立远程仓库：`https://github.com/leaf0329/heavenly-creations-lite.git`。
 - 发布分支：`main`。
-- 当前生产代码提交：`e67448833799b2fbfd4ef3e78d952dca90be98a3`。
+- 当前生产代码提交：`63887e773601ec962e1f0a3a9ffe5c6ca75524e6`。
 - 当前生产归档 SHA-256：`1D014173D128D254381318F587940BCC58DEBE429BC09CE24961C21D89D4C6F2`。
 - 生产初始化账户为 `MeikaAdmin` 与 `MeikaUser`（数据库规范化为小写且登录不区分大小写）；随机密码只保存在本地忽略文件 `password.txt`，不在 Git、服务器环境文件或交接文档中保存。
 - 生产发布包只能从已确认并推送的 Git 提交创建，不能直接打包含 `.env.local`、`.local-postgres`、`.local-tools`、`.next`、`node_modules`、日志或本地数据库的工作目录。
 - 每次发布记录完整提交号、归档 SHA-256、Next.js Build ID、迁移清单、数据库备份路径和回滚目录。
 - 服务器访问 npm 较慢时，可以在本机准备 Linux x64 依赖缓存后上传，但严禁把 Windows `node_modules` 直接复制到 Linux。
+
+## 11. 2026-08-21 视觉与轻量 PWA 上线记录
+
+- 用户可见品牌统一为“美咖自媒体 / MeikaAI”，“HCLite”只保留为仓库和内部技术代号；Agent 标题为“美咖文案助手”。
+- 登录页、工作台背景、浅色/深色主题、Logo 与全量版使用同一套视觉素材；登录页文案只描述轻量版实际保留的选题、文案、视频转文字和团队资料能力。
+- `/manifest.webmanifest`、`/brand/`、`/brand-mark.svg` 和 favicon 已从认证中间件排除。未登录访问 Manifest、192px 图标和登录背景均返回正确内容类型，不能删除该公开白名单。
+- 轻量 PWA 不提供离线能力；用户仍需连接服务器才能登录、生成文案或转写视频。
+- 服务器构建、类型检查和 ESLint 通过；生产构建保留 `ali-oss -> urllib -> any-promise` 的既有动态依赖警告，不影响运行。迁移报告数据库结构已是最新状态。
+- 发布后 `hclite.service` 为 `active`、`NRestarts=0`，本机及 `https://a.private.meikaai.cn` readiness、Manifest 和品牌背景均返回 200，HTTP 继续 301 跳转 HTTPS。
